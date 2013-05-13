@@ -1,187 +1,238 @@
 <!DOCTYPE html>
 <html lang="en"><!-- Adapted to work with the getUserMedia API using code from http://wesbos.com/html5-video-face-detection-canvas-javascript/ --><head>
-<meta http-equiv="content-type" content="text/html; charset=UTF-8">
-		<meta charset="utf-8">
-		<title>HTML5 Face Detection</title>
-		<style>
-			body {
-				font-family: sans-serif;
-				font-size: 17px;
-				line-height: 24px;
-				color: #fff;
-				width: 100%;
-				height: 100%;
-				margin: 0;
-				text-align: center;
-				background-color: #111;
-			}
+        <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+        <meta charset="utf-8">
+        <title>HTML5 Face Detection</title>
+        <style>
+            body {
+                font-family: sans-serif;
+                font-size: 17px;
+                line-height: 24px;
+                color: #fff;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                text-align: center;
+                background-color: #111;
+            }
 
-			#info {
-				position: absolute;
-				width: 100%;
-				height: 30px;
-				top: 50%;
-				margin-top: -15px;
-			}
+            #info {
+                position: absolute;
+                width: 100%;
+                height: 30px;
+                top: 50%;
+                margin-top: -15px;
+            }
 
-			#output {
-				width: auto;
-				height: 100%;
-				background: black;
-				-webkit-transform: scale(-1, 1);
-			}
-		</style>
-	</head>
-	<body>
-		<p id="info">Camera access denied!<br>Please reload and try again.</p>
-		<canvas style="display: none;" id="output"></canvas>		
-		<script src="ccv.js"></script>
-		<script src="face.js"></script>
-		<script>
+            #output {
+                width: auto;
+                height: 100%;
+                background: black;
+                -webkit-transform: scale(-1, 1);
+            }
+        </style>
+    </head>
+    <body>
+        <p id="info">Camera access denied!<br>Please reload and try again.</p>
+        <canvas style="display: none;" id="output"></canvas>		
+        <script src="ccv.js"></script>
+        <script src="face.js"></script>
+        <script src="jquery.js"></script>
+        <script>
+            var dataTeste;
+            var timeoutID = 0;
+            (function() {
+                var i = 0,
+                        lastTime = 0,
+                        vendors = ['ms', 'moz', 'webkit', 'o'];
 
-(function() {
-	var i = 0,
-		lastTime = 0,
-		vendors = ['ms', 'moz', 'webkit', 'o'];
-	
-	while (i < vendors.length && !window.requestAnimationFrame) {
-		window.requestAnimationFrame = window[vendors[i] + 'RequestAnimationFrame'];
-		i++;
-	}
-	
-	if (!window.requestAnimationFrame) {
-		window.requestAnimationFrame = function(callback, element) {
-			var currTime = new Date().getTime(),
-				timeToCall = Math.max(0, 1000 / 60 - currTime + lastTime),
-				id = setTimeout(function() { callback(currTime + timeToCall); }, timeToCall);
-			
-			lastTime = currTime + timeToCall;
-			return id;
-		};
-	}
-}());
+                while (i < vendors.length && !window.requestAnimationFrame) {
+                    window.requestAnimationFrame = window[vendors[i] + 'RequestAnimationFrame'];
+                    i++;
+                }
 
-var App = {
-	start: function(stream) {
-		App.video.addEventListener('canplay', function() {
-			App.video.removeEventListener('canplay');
-			setTimeout(function() {
-				App.video.play();
-				App.canvas.style.display = 'inline';
-				App.info.style.display = 'none';
-				App.canvas.width = App.video.videoWidth;
-				App.canvas.height = App.video.videoHeight;
-				App.backCanvas.width = App.video.videoWidth / 4;
-				App.backCanvas.height = App.video.videoHeight / 4;
-				App.backContext = App.backCanvas.getContext('2d');
-			
-				var w = 300 / 4 * 0.8,
-					h = 270 / 4 * 0.8;
-			
-				App.comp = [{
-					x: (App.video.videoWidth / 4 - w) / 2,
-					y: (App.video.videoHeight / 4 - h) / 2,
-					width: w, 
-					height: h,
-				}];
-			
-				App.drawToCanvas();
-			}, 100);
-		}, true);
-		try {
-			var domURL = window.URL || window.webkitURL;
-			App.video.src = domURL ? domURL.createObjectURL(stream) : stream;
-		} catch (e) {
-			try {
-				App.video.src = stream;
-			} catch (e) {
-				alert(e);
-			}
-		}
-	},
-	denied: function() {
-		App.info.innerHTML = 'Camera access denied!<br>Please reload and try again.';
-	},
-	error: function(e) {
-		if (e) {
-			console.error(e);
-		}
-		App.info.innerHTML = 'Please go to about:flags in Google Chrome and enable the &quot;MediaStream&quot; flag.';
-	},
-	drawToCanvas: function() {
-		requestAnimationFrame(App.drawToCanvas);
-		var start = new Date().getTime();		
-		var video = App.video,
-			ctx = App.context,
-			backCtx = App.backContext,
-			m = 4,
-			w = 4,
-			i,
-			comp;
-		
-		ctx.drawImage(video, 0, 0, App.canvas.width, App.canvas.height);
-		
-		backCtx.drawImage(video, 0, 0, App.backCanvas.width, App.backCanvas.height);
-		
-		comp = ccv.detect_objects(App.ccv = App.ccv || {
-			canvas: App.backCanvas,
-			cascade: cascade,
-			interval: 4,
-			min_neighbors: 1
-		});
-		
-		if (comp.length > 0) {
-			App.comp = comp;
-			for (i = App.comp.length; i--; ) {
-				ctx.save();
-				ctx.strokeStyle = "red";
-				ctx.strokeRect((App.comp[i].x - w / 2) * m, (App.comp[i].y - w / 2) * m, (App.comp[i].width + w) * m, (App.comp[i].height + w) * m); 
-				ctx.restore();
-			}
-		}
-		var end = new Date().getTime();
-		var time = end - start;
-		ctx.save();
-		// translate context to center of canvas
-	        ctx.translate(40,20);
-	        // flip context horizontally
-	        ctx.scale(-1, 1);
-	        ctx.font = '10pt Calibri';
-	        ctx.textAlign = 'center';
-	        ctx.fillStyle = 'red';
-	        ctx.fillText(time+'ms', 0, 0);
-	        ctx.restore();
-	}
-};
+                if (!window.requestAnimationFrame) {
+                    window.requestAnimationFrame = function(callback, element) {
+                        var currTime = new Date().getTime(),
+                                timeToCall = Math.max(0, 1000 / 60 - currTime + lastTime),
+                                id = setTimeout(function() {
+                            callback(currTime + timeToCall);
+                        }, timeToCall);
+                        lastTime = currTime + timeToCall;
+                        return id;
+                    };
+                }
+            }());
 
-App.init = function() {
-	App.video = document.createElement('video');
-	App.backCanvas = document.createElement('canvas');
-	App.canvas = document.querySelector('#output');
-	App.canvas.style.display = 'none';
-	App.context = App.canvas.getContext('2d');
-	App.info = document.querySelector('#info');
-	
-	navigator.getUserMedia_ = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
-	
-	try {
-		navigator.getUserMedia_({
-			video: true,
-			audio: false
-		}, App.start, App.denied);
-	} catch (e) {
-		try {
-			navigator.getUserMedia_('video', App.start, App.denied);
-		} catch (e) {
-			App.error(e);
-		}
-	}
-	
-	App.video.loop = App.video.muted = true;
-	App.video.load();
-};
+            var App = {
+                start: function(stream) {
+                    App.video.addEventListener('canplay', function() {
+                        App.video.removeEventListener('canplay');
+                        setTimeout(function() {
+                            App.video.play();
+                            App.canvas.style.display = 'inline';
+                            App.info.style.display = 'none';
+                            App.canvas.width = App.video.videoWidth;
+                            App.canvas.height = App.video.videoHeight;
+                            App.backCanvas.width = App.video.videoWidth / 4;
+                            App.backCanvas.height = App.video.videoHeight / 4;
+                            App.backContext = App.backCanvas.getContext('2d');
+                            var w = 300, h = 600;
 
-App.init();
+                            App.comp = [{
+                                    x: (App.video.videoWidth / 4 - w) / 2,
+                                    y: (App.video.videoHeight / 4 - h) / 2,
+                                    width: w,
+                                    height: h,
+                                }];
 
-		</script>	
-</body></html>
+                            App.drawToCanvas();
+                        }, 100);
+                    }, true);
+                    try {
+                        var domURL = window.URL || window.webkitURL;
+                        App.video.src = domURL ? domURL.createObjectURL(stream) : stream;
+                    } catch (e) {
+                        try {
+                            App.video.src = stream;
+                        } catch (e) {
+                            alert(e);
+                        }
+                    }
+                },
+                denied: function() {
+                    App.info.innerHTML = 'Camera access denied!<br>Please reload and try again.';
+                },
+                error: function(e) {
+                    if (e) {
+                        console.error(e);
+                    }
+                    App.info.innerHTML = 'Please go to about:flags in Google Chrome and enable the &quot;MediaStream&quot; flag.';
+                },
+                drawToCanvas: function() {
+                    requestAnimationFrame(App.drawToCanvas);
+                    var start = new Date().getTime();
+                    var video = App.video,
+                            ctx = App.context,
+                            backCtx = App.backContext,
+                            m = 4,
+                            i,
+                            comp;
+
+                    ctx.drawImage(video, 0, 0, App.canvas.width, App.canvas.height);
+
+                    backCtx.drawImage(video, 0, 0, App.backCanvas.width, App.backCanvas.height);
+
+                    comp = ccv.detect_objects(App.ccv = App.ccv || {
+                        canvas: App.backCanvas,
+                        cascade: cascade,
+                        interval: 4,
+                        min_neighbors: 1
+                    });
+                    var teste = document.createElement('canvas');
+                    var contextTeste = teste.getContext('2d');
+                    var x = 0;
+                    var y = 0;
+                    var he = 0;
+                    var wi = 0;
+                    if (comp.length > 0) {
+                        App.comp = comp;
+                        for (i = App.comp.length; i--; ) {
+                            x = (App.comp[i].x - (App.comp[i].width * 0.39)) * m;
+                            y = (App.comp[i].y - (App.comp[i].height * 0.55)) * m;
+                            wi = (App.comp[i].width + (App.comp[i].width * 0.8)) * m;
+                            he = (App.comp[i].height + (App.comp[i].height * 0.8)) * m;
+                            ctx.save();
+                            ctx.strokeStyle = "red";
+                            ctx.strokeRect(x, y, wi, he);
+                            ctx.restore();
+                            contextTeste.drawImage(video, x, y, wi, he, 0, 0, 108, 108);
+                            dataTeste = contextTeste.getImageData(0, 0, 108, 108).data;
+                            if (timeoutID == 0) {
+                                timeoutID = setTimeout(rgbtograyscale, 1000);
+                            }
+                        }
+
+                    }
+                    var end = new Date().getTime();
+                    var time = end - start;
+                    ctx.save();
+                    ctx.translate(150, 20);
+                    ctx.scale(-1, 1);
+                    ctx.font = '10pt Calibri';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = 'red';
+                    ctx.fillText(time + 'ms | x:' + x.toFixed(1) + ' y:' + y.toFixed(1) + ' h:' + he.toFixed(1) + ' w:' + wi.toFixed(1), 0, 0);
+                    ctx.restore();
+                }
+            };
+
+
+            App.init = function() {
+                App.video = document.createElement('video');
+                App.backCanvas = document.createElement('canvas');
+                App.canvas = document.querySelector('#output');
+                App.canvas.style.display = 'none';
+                App.context = App.canvas.getContext('2d');
+                App.info = document.querySelector('#info');
+
+                navigator.getUserMedia_ = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
+
+                try {
+                    navigator.getUserMedia_({
+                        video: true,
+                        audio: false
+                    }, App.start, App.denied);
+                } catch (e) {
+                    try {
+                        navigator.getUserMedia_('video', App.start, App.denied);
+                    } catch (e) {
+                        App.error(e);
+                    }
+                }
+
+                App.video.loop = App.video.muted = true;
+                App.video.load();
+            };
+
+            App.init();
+
+            var vetor;
+            var enviado = true;
+            function rgbtograyscale() {
+                window.clearInterval(timeoutID);
+                size = dataTeste.length;
+                if (size > 0) {
+                    vetor = true;
+                    var grayscalei = 0;
+                    var grayscale = new Array();
+                    for (var i = 0; i < size; ) {
+                        var yvalue = 0.299 * dataTeste[i++];
+                        yvalue += 0.587 * dataTeste[i++];
+                        yvalue += 0.114 * dataTeste[i++];
+                        if (dataTeste[i++] == 0) {
+                            vetor = false;
+                        }
+                        yvalue = yvalue.toFixed(0);
+                        if (yvalue > 255) {
+                            yvalue = 255;
+                        }
+                        grayscale[grayscalei++] = yvalue;
+                    }
+                    timeoutID = 0;
+                    if (vetor && enviado) {
+                        enviado = false;
+                        $.ajax({
+                            url: 'teste',
+                            type: 'POST',                            
+                            data: {bytes:  grayscale.length, depth: 8, layers: 1, width: 108, height: 108, payload: grayscale},
+                            success: function(result) {
+                                enviado = true;
+                                console.log(result);
+                            }
+                        });
+                    } 
+                }
+            }
+        </script>	
+    </body></html>
